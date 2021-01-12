@@ -46,7 +46,7 @@
 
 (define simple-math-parser
            (parser
-            (start command)
+            (start cexp)
             (end EOF)
             (error void)
             (tokens a b)
@@ -68,7 +68,7 @@
                    ((paropen exp parclose) (list 'exp $2))
                    ((NUM) (list 'number $1)) ((null) (list 'null))
                    ((VARIABLE) (list 'varval $1)) ((BOOL) (list 'boolean $1))
-                   ((STRING) (list string $1)) ((list_statement) (list 'list $1))
+                   ((STRING) (list 'string $1)) ((list_statement) (list 'list $1))
                    ((VARIABLE listMember) (list 'varlistmem $1 $2)))
              (list_statement ((bracopen listValues bracclose) (list 'listval $2))
                    ((bracopen bracclose) (list 'emptylist)))
@@ -76,8 +76,27 @@
              (listMember ((bracopen exp bracclose) (list 'exp $2))
                    ((ob exp cb listMember) (list 'explistmem $2 $4)))
              )))
-(define (add a b) (+ a b))
+
+
+#| cexp complete except varval and varlistmem |#
+(define (control command) (cond
+             [(equal? (car command) 'keyword) (control (cadr command))]
+             [(equal? (car command) 'return_statement) (control (cadr command))] 
+             [(equal? (car command) 'negetive) (* -1 (control (cadr command)))]
+             [(equal? (car command) 'exp) (control (cadr command))]
+             [(equal? (car command) 'null) null]
+             [(equal? (car command) 'varval) void]
+             [(equal? (car command) 'boolean) (cadr command)]
+             [(equal? (car command) 'string) (cadr command)]
+             [(equal? (car command) 'list) (control (cadr command))]
+             [(equal? (car command) 'varlistmem) (void)]
+             [(equal? (car command) 'number) (cadr command)]
+             [else command]
+                           ))
+
+
 ;test
 (define lex-this (lambda (lexer input) (lambda () (lexer input))))
-(define my-lexer (lex-this simple-math-lexer (open-input-string "return null; hassan = -45.34")))
-(let ((parser-res (simple-math-parser my-lexer))) parser-res)
+(define my-lexer (lex-this simple-math-lexer (open-input-string "'asdasfa'")))
+(let ((parser-res (simple-math-parser my-lexer))) (control parser-res))
+
