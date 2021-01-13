@@ -16,6 +16,7 @@
             ("print" (token-print))
             ("switch" (token-switch))
             ("case" (token-case))
+            (":" (token-colon))
             ("+" (token-plus))
             ("-" (token-minus))
             ("*" (token-mult))
@@ -46,7 +47,7 @@
             ((eof) (token-EOF))))
 
 (define-tokens a (VARIABLE NUM BOOL STRING))
-(define-empty-tokens b (EOF print switch case plus minus mult div semicolon while do end if then else assignment return gt lt eq neq paropen parclose bracopen bracclose comma null ob cb))
+(define-empty-tokens b (EOF print switch case colon plus minus mult div semicolon while do end if then else assignment return gt lt eq neq paropen parclose bracopen bracclose comma null ob cb))
 
 (define simple-math-parser
            (parser
@@ -58,11 +59,15 @@
              (command ((keyword) (list 'keyword $1)) ((command semicolon keyword) (list 'commandkeyword $1 $3)))
              (keyword ((if_statement) (list 'if_statement $1)) ((assignment_statement) (list 'assignment_statement $1))
                       ((while_statement) (list 'while_statement $1)) ((return_statement) (list 'return_statement $1))
-                      ((print paropen exp parclose) (list 'print $3)))
+                      ((print paropen exp parclose) (list 'print $3))
+                      ((switch paropen exp parclose colon case_stetement else command end) (list 'switch_statement $3 $6 $8)))
              (while_statement ((while exp do command end) (list 'while $2 $4)))
              (if_statement ((if exp then command else command end) (list 'if $2 $4 $6)))
              (assignment_statement ((VARIABLE assignment exp) (list 'assignment $1 $3)))
              (return_statement ((return exp) (list 'return $2)))
+             (case_stetement ((Case) (list 'Case $1)) ((Case case_stetement) (list 'Casecase $1 $2)))
+             (Case ((case paropen exp parclose colon command end) (list 'case $3 $6)))
+                   
              (exp ((aexp) (list 'aexp $1)) ((aexp gt aexp) (list 'gt $1 $3)) ((aexp lt aexp) (list 'lt $1 $3))
                   ((aexp eq aexp) (list 'eq $1 $3)) ((aexp neq aexp) (list 'neq $1 $3)))
              (aexp ((bexp) (list 'bexp $1)) ((bexp minus aexp) (list 'sub $1 $3))
@@ -85,7 +90,6 @@
 
 #|(all variable related call void func) |#
 ;return should end program but dont
-;switch case should be added
 (define (control command) (cond
              [(equal? (car command) 'keyword) (control (cadr command))]
              [(equal? (car command) 'commandkeyword) (begin (control (cadr command)) (control (caddr command)))]
@@ -103,6 +107,11 @@
              [(equal? (car command) 'assignment) (void)]
 
              [(equal? (car command) 'return) (control (cadr command))]
+
+             [(equal? (car command) 'switch_statement) (switch-func (control (cadr command)) (control (caddr command)) (cadddr command))]
+             [(equal? (car command) 'Case) (list (control (cadr command)))]
+             [(equal? (car command) 'Casecase) (cons (control (cadr command)) (control (caddr command)))]
+             [(equal? (car command) 'case) (cons (control (cadr command)) (caddr command))]
 
              [(equal? (car command) 'aexp) (control (cadr command))]
              [(equal? (car command) 'gt) (gt (control (cadr command)) (control (caddr command)))]
@@ -145,6 +154,12 @@
                                  (while-func exp command))
                               null))
 
+(define (switch-func exp lst default) (if
+                                       (null? lst)
+                                       (control default)
+                                       (if (eq exp (car (car lst))) (control (cdr (car lst))) (switch-func exp (cdr lst) default))
+                                       ))
+  
 (define (if-func exp command1 command2)
              (if (control exp) (control command1) (control command2)))
 
@@ -259,6 +274,6 @@
 
 ;test
 (define lex-this (lambda (lexer input) (lambda () (lexer input))))
-(define my-lexer (lex-this simple-math-lexer (open-input-string "print((false + [false, true] + true) * false)")))
+(define my-lexer (lex-this simple-math-lexer (open-input-string "switch(7): case(2): print(false) end case(4): print(33) end case(4 + 3): print(111) end else print(55) end")))
 ;(let ((parser-res (simple-math-parser my-lexer)))  parser-res)
 (let ((parser-res (simple-math-parser my-lexer))) (control parser-res))
