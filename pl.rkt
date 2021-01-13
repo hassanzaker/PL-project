@@ -7,12 +7,12 @@
 
 (define (string->boolean x) (if (equal? x "true") #t (if (equal? x "false") #f (error))))
 
-#|string has a problem|#
+
 (define simple-math-lexer
            (lexer
             ((:or (:+ (char-range #\0 #\9)) (:: (:+ (char-range #\0 #\9)) #\. (:+ (char-range #\0 #\9)))) (token-NUM (string->number lexeme)))
             ((:or "true" "false")(token-BOOL (string->boolean lexeme)))
-            ((:: "'" (:+ any-char) "'")(token-STRING lexeme))
+            ((:: "'" (complement (:: any-string "'" any-string)) "'") (token-STRING (substring lexeme 1 (- (string-length lexeme) 1))))
             ("print" (token-print))
             ("switch" (token-switch))
             ("case" (token-case))
@@ -88,7 +88,7 @@
              )))
 
 
-#|(all variable related call void func) |#
+
 ;return should end program but dont
 (define (control command) (cond
              [(equal? (car command) 'keyword) (control (cadr command))]
@@ -104,7 +104,7 @@
 
              [(equal? (car command) 'if) (if-func (cadr command) (caddr command) (cadddr command))]
              
-             [(equal? (car command) 'assignment) (void)]
+             [(equal? (car command) 'assignment) (set-variable (cadr command) (control (caddr command)))]
 
              [(equal? (car command) 'return) (control (cadr command))]
 
@@ -130,11 +130,11 @@
              [(equal? (car command) 'negetive) (negetive (control (cadr command)))]
              [(equal? (car command) 'exp) (control (cadr command))]
              [(equal? (car command) 'null) null]
-             [(equal? (car command) 'varval) (void)]
+             [(equal? (car command) 'varval) (search-var (cadr command) variables)]
              [(equal? (car command) 'boolean) (cadr command)]
              [(equal? (car command) 'string) (cadr command)]
              [(equal? (car command) 'list) (control (cadr command))]
-             [(equal? (car command) 'varlistmem) (void)]
+             [(equal? (car command) 'varlistmem) (get-item (search-var (cadr command) variables) (control (caddr command)))]
              [(equal? (car command) 'number) (cadr command)]
 
              [(equal? (car command) 'listval)  (control (cadr command))]
@@ -271,9 +271,39 @@
               [else (error "cant div this two types")]
               ))
 
+(define variables (list))
 
-;test
-(define lex-this (lambda (lexer input) (lambda () (lexer input))))
-(define my-lexer (lex-this simple-math-lexer (open-input-string "switch(7): case(2): print(false) end case(4): print(33) end case(4 + 3): print(111) end else print(55) end")))
-;(let ((parser-res (simple-math-parser my-lexer)))  parser-res)
-(let ((parser-res (simple-math-parser my-lexer))) (control parser-res))
+(define (set-variable name value) 
+             (set! variables (list name value variables))                   
+                                   )
+
+(define (search-var name vars) (if (null? vars)
+               (error "variable not defined!")                    
+               (if (equal? (car vars) name)
+                   (cadr vars)
+                   (search-var name (caddr vars))
+               )))
+
+(define (get-item lst index) (if (list? lst)
+               (get-by-index lst index)
+               (error "it is not list!")
+                                  ))
+
+(define (get-by-index lst index) (if
+                (or (< index 0) (and (null? (cdr lst)) (> index 0)))
+                (error "index out of range")
+                (if (= index 0) (car lst) (get-by-index (cdr lst) (- index 1)))
+                ))
+
+
+(define evaluate
+  (lambda (path)
+    (define input-string (file->string path))
+    (define lex-this (lambda (lexer input) (lambda () (lexer input))))
+    (define my-lexer (lex-this simple-math-lexer (open-input-string input-string)))
+    (let
+        ((parser-res (simple-math-parser my-lexer)))
+        (control parser-res))))
+
+
+(evaluate "a.txt")
