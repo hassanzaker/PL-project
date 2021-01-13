@@ -12,7 +12,7 @@
            (lexer
             ((:or (:+ (char-range #\0 #\9)) (:: (:+ (char-range #\0 #\9)) #\. (:+ (char-range #\0 #\9)))) (token-NUM (string->number lexeme)))
             ((:or "true" "false")(token-BOOL (string->boolean lexeme)))
-            ((:: "'" (complement (:: any-string "'" any-string)) "'") (token-STRING (substring lexeme 1 (- (string-length lexeme) 1))))
+            ((:: "\"" (complement (:: any-string "\"" any-string)) "\"") (token-STRING (substring lexeme 1 (- (string-length lexeme) 1))))
             ("print" (token-print))
             ("switch" (token-switch))
             ("case" (token-case))
@@ -92,13 +92,13 @@
 ;return should end program but dont
 (define (control command) (cond
              [(equal? (car command) 'keyword) (control (cadr command))]
-             [(equal? (car command) 'commandkeyword) (begin (control (cadr command)) (control (caddr command)))]
+             [(equal? (car command) 'commandkeyword) (begin (define x (control (cadr command))) (if (and (list? x) (equal? (cadr x) "return")) (car x) (control (caddr command))))]
 
              [(equal? (car command) 'if_statement) (control (cadr command))]
              [(equal? (car command) 'while_statement) (control (cadr command))]
              [(equal? (car command) 'assignment_statement) (control (cadr command))]
-             [(equal? (car command) 'return_statement) (control (cadr command))]
-             [(equal? (car command) 'print) (display (control (cadr command)))]
+             [(equal? (car command) 'return_statement) (list (control (cadr command)) "return")]
+             [(equal? (car command) 'print) (begin (display (control (cadr command))) (display "\n"))]
              
              [(equal? (car command) 'while) (while-func (cadr command) (caddr command))]
 
