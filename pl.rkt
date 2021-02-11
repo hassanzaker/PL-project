@@ -84,15 +84,16 @@
                    ((bracopen bracclose) (list 'emptylist)))
              (listValues ((exp) (list 'onememlist $1)) ((exp comma listValues) (list 'explistval $1 $3)))
              (listMember ((bracopen exp bracclose) (list 'exp $2))
-                   ((ob exp cb listMember) (list 'explistmem $2 $4)))
+                   ((bracopen exp bracclose listMember) (list 'explistmem $2 $4)))
              )))
 
 
 
 ;return should end program but dont
 (define (control command) (cond
-             [(equal? (car command) 'keyword) (control (cadr command))]
-             [(equal? (car command) 'commandkeyword) (begin (define x (control (cadr command))) (if (and (list? x) (equal? (cadr x) "return")) (car x) (control (caddr command))))]
+             [(equal? (car command) 'keyword) (begin (define x (control (cadr command))) (if (and (list? x) (equal?  (cadr x) "return")) x x))]
+
+             [(equal? (car command) 'commandkeyword) (begin (define x (control (cadr command))) (if (and (list? x) (equal?  (cadr x) "return")) (list (car x) "return") (control (caddr command))))]
 
              [(equal? (car command) 'if_statement) (control (cadr command))]
              [(equal? (car command) 'while_statement) (control (cadr command))]
@@ -134,7 +135,7 @@
              [(equal? (car command) 'boolean) (cadr command)]
              [(equal? (car command) 'string) (cadr command)]
              [(equal? (car command) 'list) (control (cadr command))]
-             [(equal? (car command) 'varlistmem) (get-item (search-var (cadr command) variables) (control (caddr command)))]
+             [(equal? (car command) 'varlistmem) (get-whole (search-var (cadr command) variables) (control (caddr command)))]
              [(equal? (car command) 'number) (cadr command)]
 
              [(equal? (car command) 'listval)  (control (cadr command))]
@@ -143,16 +144,16 @@
              [(equal? (car command) 'explistval) (cons (control (cadr command)) (control (caddr command)))]
              [(equal? (car command) 'onememlist) (cons (control (cadr command)) null)]
              
-             [(equal? (car command) 'explistmem) (void)]
+             [(equal? (car command) 'explistmem) (cons (control (cadr command)) (control (caddr command)))]
              
              [else command]
                            ))
 
 (define (while-func exp command)
-             (if (control exp) (begin
-                                 (control command)
-                                 (while-func exp command))
-                              null))
+              (if (control exp) (let ((x (control command)))
+                                 (if (and (list? x) (equal?  (cadr x) "return")) x
+                                 (while-func exp command)))
+                              (list null "while-end")))
 
 (define (switch-func exp lst default) (if
                                        (null? lst)
@@ -289,6 +290,11 @@
                (error "it is not list!")
                                   ))
 
+(define (get-whole lst index_lst) (if
+                 (number? index_lst) (get-item lst index_lst)
+                      (get-whole (get-item lst (car index_lst)) (cdr index_lst))))
+
+   
 (define (get-by-index lst index) (if
                 (or (< index 0) (and (null? (cdr lst)) (> index 0)))
                 (error "index out of range")
@@ -301,9 +307,9 @@
     (define input-string (file->string path))
     (define lex-this (lambda (lexer input) (lambda () (lexer input))))
     (define my-lexer (lex-this simple-math-lexer (open-input-string input-string)))
-    (let
-        ((parser-res (simple-math-parser my-lexer)))
-        (control parser-res))))
+    (define parser-res (simple-math-parser my-lexer))
+    (define x (control parser-res))
+     (if (and (list? x) (equal? (cadr x) "return")) (car x) x)))
 
 
 (evaluate "a.txt")
